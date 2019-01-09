@@ -1,0 +1,2 @@
+//Store the credentials for database access in db.secret.config
+*.secret.config
