@@ -29,7 +29,7 @@ type car struct {
 	DatePurchased        string
 	MileageWhenPurchased float32
 	CurrentlyActive      bool
-	MileageWhenSold      float32
+	MileageWhenSold      float64
 	DateSold             string
 	Nickname             string
 }
@@ -60,6 +60,17 @@ type user struct {
 	Password string
 }
 
+type repair struct {
+	TransactionID   int
+	CarID           int
+	StationID       int
+	PurchaseDate    string
+	OdometerReading float32
+	Cost            float32
+	Description     string
+	Units           string
+}
+
 func main() {
 
 	dbConInfo, err := ioutil.ReadFile("db.secret.config")
@@ -69,11 +80,14 @@ func main() {
 	check(err)
 	defer db.Close()
 
+	//Check the connection to the database - If the credentials are wrong this will err out
 	err = db.Ping()
 	check(err)
 
 	http.HandleFunc("/viewCars", viewAllCars)
 	http.HandleFunc("/viewFillUps", viewFillUps)
+
+	//TODO: change over to ListenAndServeTLS() once cert is obtained
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -85,21 +99,33 @@ func check(err error) {
 
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "{insert viewCars code here!}")
-	rows, err := db.Query(`SELECT CarID, DatePurchased FROM Car2;`)
+	rows, err := db.Query(`SELECT * FROM Car2;`)
 	check(err)
 	defer rows.Close()
 
-	// data to be used in query
-	var car1 car
-	//var carID int
-	//var s, license string
 	s := "RETRIEVED RECORDS:\n"
 
-	// query
 	for rows.Next() {
-		err = rows.Scan(&car1.CarID, &car1.DatePurchased)
+		var car1 car
+		var sMileageWhenSold sql.NullFloat64
+		var sDateSold, sNickname sql.NullString
+
+		err = rows.Scan(&car1.CarID, &car1.LicensePlate, &car1.Make, &car1.Model, &car1.ModelYear,
+			&car1.OdometerReading, &car1.Units, &car1.DatePurchased, &car1.MileageWhenPurchased,
+			&car1.CurrentlyActive, &sMileageWhenSold, &sDateSold, &sNickname)
 		check(err)
 		//s += "Car1:" + car1
+
+		if sMileageWhenSold.Valid {
+			car1.MileageWhenSold = sMileageWhenSold.Float64
+		}
+		if sDateSold.Valid {
+			car1.DateSold = sDateSold.String
+		}
+		if sNickname.Valid {
+			car1.Nickname = sNickname.String
+		}
+
 		time1, err := time.Parse("2006-1-2", car1.DatePurchased)
 		check(err)
 		fmt.Println("Car was purchased in the month of:" + strconv.Itoa(int(time1.Month())))
