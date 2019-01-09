@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -61,8 +62,10 @@ type user struct {
 
 func main() {
 
-	//user:password@tcp(localhost:5555)/dbname?charset=utf8
-	db, err = sql.Open("mysql", "")
+	dbConInfo, err := ioutil.ReadFile("db.secret.config")
+	check(err)
+	//format found in config file: user:password@tcp(localhost:5555)/dbname?charset=utf8
+	db, err = sql.Open("mysql", string(dbConInfo))
 	check(err)
 	defer db.Close()
 
