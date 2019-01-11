@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"io"
@@ -84,11 +85,33 @@ func main() {
 	err = db.Ping()
 	check(err)
 
+	car1 := getCarFromID(7)
+	fmt.Println(car1)
+
 	http.HandleFunc("/viewCars", viewAllCars)
+	http.HandleFunc("/", index)
 	http.HandleFunc("/viewFillUps", viewFillUps)
 
-	//TODO: change over to ListenAndServeTLS() once cert is obtained
-	http.ListenAndServe(":8080", nil)
+	cfg := &tls.Config{
+		MinVersion:               tls.VersionTLS12,
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+			tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+		},
+	}
+
+	srv := &http.Server{
+		Addr:         ":443",
+		TLSConfig:    cfg,
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
+	}
+
+	//TODO - add these two .pem paths to db.secret.config
+	log.Fatalln(srv.ListenAndServeTLS("", ""))
+
 }
 
 func check(err error) {
@@ -97,8 +120,11 @@ func check(err error) {
 	}
 }
 
+func index(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "homepage")
+}
+
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
-	io.WriteString(res, "{insert viewCars code here!}")
 	rows, err := db.Query(`SELECT * FROM Car2;`)
 	check(err)
 	defer rows.Close()
@@ -135,8 +161,32 @@ func viewAllCars(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(res, s)
 }
 
-func getCarFromID(carID int) {
+func getCarFromID(carID int) car {
+	rows, err := db.Query("SELECT * FROM Car2 WHERE CarID =" + strconv.Itoa(carID) + ";")
+	check(err)
+	defer rows.Close()
 
+	rows.Next()
+	var car1 car
+	var sMileageWhenSold sql.NullFloat64
+	var sDateSold, sNickname sql.NullString
+
+	err = rows.Scan(&car1.CarID, &car1.LicensePlate, &car1.Make, &car1.Model, &car1.ModelYear,
+		&car1.OdometerReading, &car1.Units, &car1.DatePurchased, &car1.MileageWhenPurchased,
+		&car1.CurrentlyActive, &sMileageWhenSold, &sDateSold, &sNickname)
+	check(err)
+
+	if sMileageWhenSold.Valid {
+		car1.MileageWhenSold = sMileageWhenSold.Float64
+	}
+	if sDateSold.Valid {
+		car1.DateSold = sDateSold.String
+	}
+	if sNickname.Valid {
+		car1.Nickname = sNickname.String
+	}
+
+	return car1
 }
 
 func viewFillUps(res http.ResponseWriter, req *http.Request) {
