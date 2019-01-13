@@ -59,7 +59,7 @@ type user struct {
 	UserID   int
 	Username string
 	//TODO: Impliment password hashing so that text passwords are not stored
-	Password string
+	Password []byte
 }
 
 type repair struct {
@@ -93,10 +93,18 @@ func main() {
 	car1 := getCarFromID(7)
 	fmt.Println(car1)
 
-	http.HandleFunc("/viewCars", viewAllCars)
+	//Routes-------------------------------------------------------------------
+	//---------Unauthenticated pages-------------------------------------------
 	http.HandleFunc("/", index)
+	http.HandleFunc("/login", login)
+	http.HandleFunc("/signup", signup)
+	http.HandleFunc("/about", about)
+	//---------Authenticated pages---------------------------------------------
+	http.HandleFunc("/viewCars", viewAllCars)
 	http.HandleFunc("/viewFillUps", viewFillUps)
+	//--------------------------------------------------------End Routes-------
 
+	//Server Setup and Config--------------------------------------------------
 	cfg := &tls.Config{
 		MinVersion:               tls.VersionTLS12,
 		PreferServerCipherSuites: true,
@@ -107,16 +115,14 @@ func main() {
 			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
 		},
 	}
-
 	srv := &http.Server{
 		Addr:         ":443",
 		TLSConfig:    cfg,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
-
 	//SecretConfigs 1 and 2 are the file path to the cert .pem and key .pem
 	log.Fatalln(srv.ListenAndServeTLS(secretConfig[1], secretConfig[2]))
-
+	//-----------------------------------------------End Server Setup and Config---
 }
 
 func check(err error) {
@@ -125,10 +131,26 @@ func check(err error) {
 	}
 }
 
+//Route Functions-----------------------------------------------------------
+//--------------Unauthenticated Pages---------------------------------------
 func index(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "homepage")
 }
 
+func login(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "login page")
+
+}
+func signup(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "signup page")
+
+}
+func about(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "about page")
+
+}
+
+//-----------Authenticated Pages------------------------------------------
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
 	rows, err := db.Query(`SELECT * FROM Car2;`)
 	check(err)
@@ -166,6 +188,27 @@ func viewAllCars(res http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(res, s)
 }
 
+func viewFillUps(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "{insert viewCars code here!}")
+	rows, err := db.Query(`SELECT LicensePlate FROM Car2;`)
+	check(err)
+	defer rows.Close()
+
+	// data to be used in query
+	var s, license string
+	s = "RETRIEVED RECORDS:\n"
+
+	// query
+	for rows.Next() {
+		err = rows.Scan(&license)
+		check(err)
+		s += license + "\n"
+	}
+	fmt.Fprintln(res, s)
+}
+
+//---------------------------------------------End Route Functions------
+
 func getCarFromID(carID int) car {
 	rows, err := db.Query("SELECT * FROM Car2 WHERE CarID =" + strconv.Itoa(carID) + ";")
 	check(err)
@@ -192,23 +235,4 @@ func getCarFromID(carID int) car {
 	}
 
 	return car1
-}
-
-func viewFillUps(res http.ResponseWriter, req *http.Request) {
-	io.WriteString(res, "{insert viewCars code here!}")
-	rows, err := db.Query(`SELECT LicensePlate FROM Car2;`)
-	check(err)
-	defer rows.Close()
-
-	// data to be used in query
-	var s, license string
-	s = "RETRIEVED RECORDS:\n"
-
-	// query
-	for rows.Next() {
-		err = rows.Scan(&license)
-		check(err)
-		s += license + "\n"
-	}
-	fmt.Fprintln(res, s)
 }
