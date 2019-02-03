@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -71,6 +72,12 @@ type repair struct {
 	Cost            float32
 	Description     string
 	Units           string
+}
+
+var tpl *template.Template
+
+func init() {
+	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
 }
 
 func main() {
@@ -143,6 +150,7 @@ func login(res http.ResponseWriter, req *http.Request) {
 }
 func signup(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "signup page")
+	tpl.ExecuteTemplate(res, "signup.gphtml", nil)
 
 }
 func about(res http.ResponseWriter, req *http.Request) {
