@@ -127,7 +127,7 @@ func main() {
 		TLSConfig:    cfg,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
-	//SecretConfigs 1 and 2 are the file path to the cert .pem and key .pem
+	//SecretConfigs 1 and 2 are the file path to the fullchain .pem and privkey .pem
 	log.Fatalln(srv.ListenAndServeTLS(secretConfig[1], secretConfig[2]))
 	//-----------------------------------------------End Server Setup and Config---
 }
