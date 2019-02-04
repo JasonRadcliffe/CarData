@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
@@ -10,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -76,20 +76,35 @@ type repair struct {
 
 var tpl *template.Template
 
+//Appconfig is
+type appConfig struct {
+	DBConfig   string `json:"dbCon"`
+	CertConfig struct {
+		Fullchain string `json:"fullchain"`
+		PrivKey   string `json:"privkey"`
+	} `json:"certconfigs"`
+	OAuthConfig struct {
+		ClientID     string `json:"clientid"`
+		ClientSecret string `json:"clientsecret"`
+	}
+}
+
+var config appConfig
+
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
 }
 
 func main() {
-	//using ioutil.ReadFile because the whole config file of secret configs is never going to be too long
-	dbConInfo, err := ioutil.ReadFile("db.secret.config")
-	check(err)
 
-	var secretConfig []string
-	secretConfig = strings.Split(string(dbConInfo), "\n")
+	file, err := ioutil.ReadFile("secret.config.json")
+	if err != nil {
+		log.Fatalln("config file error")
+	}
+	json.Unmarshal(file, &config)
 
 	//format found in config file: user:password@tcp(localhost:5555)/dbname?charset=utf8
-	db, err = sql.Open("mysql", secretConfig[0])
+	db, err = sql.Open("mysql", config.DBConfig)
 	check(err)
 	defer db.Close()
 
@@ -128,7 +143,7 @@ func main() {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
 	//SecretConfigs 1 and 2 are the file path to the fullchain .pem and privkey .pem
-	log.Fatalln(srv.ListenAndServeTLS(secretConfig[1], secretConfig[2]))
+	log.Fatalln(srv.ListenAndServeTLS(config.CertConfig.Fullchain, config.CertConfig.PrivKey))
 	//-----------------------------------------------End Server Setup and Config---
 }
 
