@@ -86,7 +86,7 @@ type appConfig struct {
 	OAuthConfig struct {
 		ClientID     string `json:"clientid"`
 		ClientSecret string `json:"clientsecret"`
-	}
+	} `json:"oauthconfigs"`
 }
 
 var config appConfig
