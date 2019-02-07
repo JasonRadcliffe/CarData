@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -90,12 +93,10 @@ type appConfig struct {
 }
 
 var config appConfig
+var oauthconfig *oauth2.Config
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
-}
-
-func main() {
 
 	file, err := ioutil.ReadFile("secret.config.json")
 	if err != nil {
@@ -103,7 +104,21 @@ func main() {
 	}
 	json.Unmarshal(file, &config)
 
-	//format found in config file: user:password@tcp(localhost:5555)/dbname?charset=utf8
+	oauthconfig = &oauth2.Config{
+		ClientID:     config.OAuthConfig.ClientID,
+		ClientSecret: config.OAuthConfig.ClientSecret,
+		RedirectURL:  "https://cardata.jasonradcliffe.com/success",
+		Scopes: []string{
+			"https://www.googleapis.com/auth/userinfo.email",
+		},
+		Endpoint: google.Endpoint,
+	}
+}
+
+func main() {
+	fmt.Println("testnumero1: " + oauthconfig.AuthCodeURL("state125"))
+
+	//format needed by sql driver: [username]:[password]@tcp([address:port])/[dbname]?charset=utf8
 	db, err = sql.Open("mysql", config.DBConfig)
 	check(err)
 	defer db.Close()
@@ -124,6 +139,7 @@ func main() {
 	//---------Authenticated pages---------------------------------------------
 	http.HandleFunc("/viewCars", viewAllCars)
 	http.HandleFunc("/viewFillUps", viewFillUps)
+	http.HandleFunc("/success", success)
 	//--------------------------------------------------------End Routes-------
 
 	//Server Setup and Config--------------------------------------------------
@@ -160,9 +176,11 @@ func index(res http.ResponseWriter, req *http.Request) {
 }
 
 func login(res http.ResponseWriter, req *http.Request) {
-	io.WriteString(res, "login page")
-
+	//Each time login() is called, append a unique, random state to  the url
+	url := oauthconfig.AuthCodeURL("randomstring")
+	http.Redirect(res, req, url, http.StatusTemporaryRedirect)
 }
+
 func signup(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "signup page")
 	tpl.ExecuteTemplate(res, "signup.gphtml", nil)
@@ -174,6 +192,24 @@ func about(res http.ResponseWriter, req *http.Request) {
 }
 
 //-----------Authenticated Pages------------------------------------------
+func success(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "success page!")
+	code := req.FormValue("code")
+
+	token, err := oauthconfig.Exchange(oauth2.NoContext, code)
+	check(err)
+
+	io.WriteString(res, token.AccessToken)
+
+	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	check(err)
+	defer response.Body.Close()
+	contents, err := ioutil.ReadAll(response.Body)
+	fmt.Fprintf(res, "Content of success http.get(): %s\n", contents)
+	io.WriteString(res, "||")
+
+}
+
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
 	rows, err := db.Query(`SELECT * FROM Car2;`)
 	check(err)
