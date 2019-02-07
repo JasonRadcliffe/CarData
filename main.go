@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/tls"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -77,9 +79,6 @@ type repair struct {
 	Units           string
 }
 
-var tpl *template.Template
-
-//Appconfig is
 type appConfig struct {
 	DBConfig   string `json:"dbCon"`
 	CertConfig struct {
@@ -92,8 +91,16 @@ type appConfig struct {
 	} `json:"oauthconfigs"`
 }
 
+type oauthUser struct {
+	Email         string `json:"email"`
+	VerifiedEmail string `json:"verified_email"`
+	Name          string `json:"name"`
+}
+
+var tpl *template.Template
 var config appConfig
 var oauthconfig *oauth2.Config
+var state string
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
@@ -134,6 +141,7 @@ func main() {
 	//---------Unauthenticated pages-------------------------------------------
 	http.HandleFunc("/", index)
 	http.HandleFunc("/login", login)
+	http.HandleFunc("/oauthlogin", oauthlogin)
 	http.HandleFunc("/signup", signup)
 	http.HandleFunc("/about", about)
 	//---------Authenticated pages---------------------------------------------
@@ -158,7 +166,7 @@ func main() {
 		TLSConfig:    cfg,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler), 0),
 	}
-	//SecretConfigs 1 and 2 are the file path to the fullchain .pem and privkey .pem
+	//From the config file: the file path to the fullchain .pem and privkey .pem
 	log.Fatalln(srv.ListenAndServeTLS(config.CertConfig.Fullchain, config.CertConfig.PrivKey))
 	//-----------------------------------------------End Server Setup and Config---
 }
@@ -176,8 +184,14 @@ func index(res http.ResponseWriter, req *http.Request) {
 }
 
 func login(res http.ResponseWriter, req *http.Request) {
-	//Each time login() is called, append a unique, random state to  the url
-	url := oauthconfig.AuthCodeURL("randomstring")
+	//The Login page for the app - contains a "Login with Google" button
+	io.WriteString(res, `<a href="/oauthlogin"> Login with Google </a>`)
+}
+
+func oauthlogin(res http.ResponseWriter, req *http.Request) {
+	//Each time oauthlogin() is called, a unique, random string gets added to the URL for security
+	state = numGenerator()
+	url := oauthconfig.AuthCodeURL(state)
 	http.Redirect(res, req, url, http.StatusTemporaryRedirect)
 }
 
@@ -193,20 +207,27 @@ func about(res http.ResponseWriter, req *http.Request) {
 
 //-----------Authenticated Pages------------------------------------------
 func success(res http.ResponseWriter, req *http.Request) {
-	io.WriteString(res, "success page!")
-	code := req.FormValue("code")
+	req.ParseForm()
+	receivedState := req.Form.Get("state")
+	if receivedState != "test" {
+		res.WriteHeader(http.StatusForbidden)
+		//http.Redirect(res, req, "/login", http.StatusNotAcceptable)
+	} else {
+		io.WriteString(res, "success page|"+state+"|")
+		code := req.FormValue("code")
 
-	token, err := oauthconfig.Exchange(oauth2.NoContext, code)
-	check(err)
+		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
+		check(err)
 
-	io.WriteString(res, token.AccessToken)
+		io.WriteString(res, token.AccessToken)
 
-	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-	check(err)
-	defer response.Body.Close()
-	contents, err := ioutil.ReadAll(response.Body)
-	fmt.Fprintf(res, "Content of success http.get(): %s\n", contents)
-	io.WriteString(res, "||")
+		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+		check(err)
+		defer response.Body.Close()
+		contents, err := ioutil.ReadAll(response.Body)
+		fmt.Fprintf(res, "Content of success http.get(): %s\n", contents)
+		io.WriteString(res, "||")
+	}
 
 }
 
@@ -267,6 +288,12 @@ func viewFillUps(res http.ResponseWriter, req *http.Request) {
 }
 
 //---------------------------------------------End Route Functions------
+
+func numGenerator() string {
+	n := make([]byte, 32)
+	rand.Read(n)
+	return base64.StdEncoding.EncodeToString(n)
+}
 
 func getCarFromID(carID int) car {
 	rows, err := db.Query("SELECT * FROM Car2 WHERE CarID =" + strconv.Itoa(carID) + ";")
