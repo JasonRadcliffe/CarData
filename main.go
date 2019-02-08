@@ -93,14 +93,16 @@ type appConfig struct {
 
 type oauthUser struct {
 	Email         string `json:"email"`
-	VerifiedEmail string `json:"verified_email"`
+	VerifiedEmail bool   `json:"verified_email"`
 	Name          string `json:"name"`
+	dbID          int
 }
 
 var tpl *template.Template
 var config appConfig
 var oauthconfig *oauth2.Config
-var state string
+var oauthstate string
+var currentUser oauthUser
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
@@ -190,8 +192,8 @@ func login(res http.ResponseWriter, req *http.Request) {
 
 func oauthlogin(res http.ResponseWriter, req *http.Request) {
 	//Each time oauthlogin() is called, a unique, random string gets added to the URL for security
-	state = numGenerator()
-	url := oauthconfig.AuthCodeURL(state)
+	oauthstate = numGenerator()
+	url := oauthconfig.AuthCodeURL(oauthstate)
 	http.Redirect(res, req, url, http.StatusTemporaryRedirect)
 }
 
@@ -207,26 +209,32 @@ func about(res http.ResponseWriter, req *http.Request) {
 
 //-----------Authenticated Pages------------------------------------------
 func success(res http.ResponseWriter, req *http.Request) {
-	req.ParseForm()
-	receivedState := req.Form.Get("state")
-	if receivedState != "test" {
-		res.WriteHeader(http.StatusForbidden)
-		//http.Redirect(res, req, "/login", http.StatusNotAcceptable)
-	} else {
-		io.WriteString(res, "success page|"+state+"|")
-		code := req.FormValue("code")
+	receivedState := req.FormValue("state")
 
+	//Verify that the state parameter is the same coming back from Google as was set when we generated the URL
+	if receivedState != oauthstate {
+		res.WriteHeader(http.StatusForbidden)
+	} else {
+
+		//Use the code that Google returns to exchange for an access token
+		code := req.FormValue("code")
 		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
 		check(err)
 
-		io.WriteString(res, token.AccessToken)
-
+		//Use the Access token to access the identity API, and get the user info
 		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 		check(err)
 		defer response.Body.Close()
+
 		contents, err := ioutil.ReadAll(response.Body)
-		fmt.Fprintf(res, "Content of success http.get(): %s\n", contents)
-		io.WriteString(res, "||")
+		json.Unmarshal(contents, &currentUser)
+
+		if currentUser.VerifiedEmail == false {
+			login(res, req)
+		} else {
+
+		}
+
 	}
 
 }
