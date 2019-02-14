@@ -1,5 +1,5 @@
 //Store the credentials for database access in db.secret.config
 secret.config.json
-CarData
+cardata
 
 .DS_Store
