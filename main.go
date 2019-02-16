@@ -1,10 +1,8 @@
 package main
 
 import (
-	"crypto/rand"
 	"crypto/tls"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -15,69 +13,13 @@ import (
 	"strconv"
 	"time"
 
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
-
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jasonradcliffe/cardata/oauth"
+	"golang.org/x/oauth2"
 )
 
 var db *sql.DB
 var err error
-
-//Matches columns in table Cars - for the date fields, get a time.Time from string like:
-//time1, err := time.Parse("2006-1-2", car1.DatePurchased)
-type car struct {
-	CarID                int
-	LicensePlate         string
-	Make                 string
-	Model                string
-	ModelYear            int
-	OdometerReading      float32
-	Units                string
-	DatePurchased        string
-	MileageWhenPurchased float32
-	CurrentlyActive      bool
-	MileageWhenSold      float64
-	DateSold             string
-	Nickname             string
-}
-
-type fillUp struct {
-	PurchaseID       int
-	CarID            int
-	StationID        int
-	PurchaseDate     string
-	GallonsPurchased float32
-	IsFillUp         bool
-	TripMileage      float32
-	OdometerReading  float32
-	Cost             float32
-	Units            string
-}
-
-type serviceStation struct {
-	StationID int
-	Name      string
-	Address   string
-}
-
-type user struct {
-	UserID   int
-	Username string
-	//TODO: Impliment password hashing so that text passwords are not stored
-	Password []byte
-}
-
-type repair struct {
-	TransactionID   int
-	CarID           int
-	StationID       int
-	PurchaseDate    string
-	OdometerReading float32
-	Cost            float32
-	Description     string
-	Units           string
-}
 
 type appConfig struct {
 	DBConfig   string `json:"dbCon"`
@@ -85,47 +27,26 @@ type appConfig struct {
 		Fullchain string `json:"fullchain"`
 		PrivKey   string `json:"privkey"`
 	} `json:"certconfigs"`
-	OAuthConfig struct {
-		ClientID     string `json:"clientid"`
-		ClientSecret string `json:"clientsecret"`
-	} `json:"oauthconfigs"`
-}
-
-type oauthUser struct {
-	Email         string `json:"email"`
-	VerifiedEmail bool   `json:"verified_email"`
-	Name          string `json:"name"`
-	dbID          int
 }
 
 var tpl *template.Template
 var config appConfig
 var oauthconfig *oauth2.Config
 var oauthstate string
-var currentUser oauthUser
+var currentUser oauth.User
 
 func init() {
 	tpl = template.Must(template.ParseGlob("templates/*.gohtml"))
 
+	//Open the secret configuration file, and load the info as specified by appConfig struct
 	file, err := ioutil.ReadFile("secret.config.json")
 	if err != nil {
 		log.Fatalln("config file error")
 	}
 	json.Unmarshal(file, &config)
-
-	oauthconfig = &oauth2.Config{
-		ClientID:     config.OAuthConfig.ClientID,
-		ClientSecret: config.OAuthConfig.ClientSecret,
-		RedirectURL:  "https://cardata.jasonradcliffe.com/success",
-		Scopes: []string{
-			"https://www.googleapis.com/auth/userinfo.email",
-		},
-		Endpoint: google.Endpoint,
-	}
 }
 
 func main() {
-	fmt.Println("testnumero1: " + oauthconfig.AuthCodeURL("state125"))
 
 	//format needed by sql driver: [username]:[password]@tcp([address:port])/[dbname]?charset=utf8
 	db, err = sql.Open("mysql", config.DBConfig)
@@ -143,13 +64,13 @@ func main() {
 	//---------Unauthenticated pages-------------------------------------------
 	http.HandleFunc("/", index)
 	http.HandleFunc("/login", login)
-	http.HandleFunc("/oauthlogin", oauthlogin)
+	http.HandleFunc("/oauthlogin", oauth.Login)
 	http.HandleFunc("/signup", signup)
 	http.HandleFunc("/about", about)
 	//---------Authenticated pages---------------------------------------------
 	http.HandleFunc("/viewCars", viewAllCars)
 	http.HandleFunc("/viewFillUps", viewFillUps)
-	http.HandleFunc("/success", success)
+	http.HandleFunc("/success", oauth.Success)
 	//--------------------------------------------------------End Routes-------
 
 	//Server Setup and Config--------------------------------------------------
@@ -190,13 +111,6 @@ func login(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, `<a href="/oauthlogin"> Login with Google </a>`)
 }
 
-func oauthlogin(res http.ResponseWriter, req *http.Request) {
-	//Each time oauthlogin() is called, a unique, random string gets added to the URL for security
-	oauthstate = numGenerator()
-	url := oauthconfig.AuthCodeURL(oauthstate)
-	http.Redirect(res, req, url, http.StatusTemporaryRedirect)
-}
-
 func signup(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "signup page")
 	tpl.ExecuteTemplate(res, "signup.gphtml", nil)
@@ -208,38 +122,9 @@ func about(res http.ResponseWriter, req *http.Request) {
 }
 
 //-----------Authenticated Pages------------------------------------------
-func success(res http.ResponseWriter, req *http.Request) {
-	receivedState := req.FormValue("state")
-
-	//Verify that the state parameter is the same coming back from Google as was set when we generated the URL
-	if receivedState != oauthstate {
-		res.WriteHeader(http.StatusForbidden)
-	} else {
-
-		//Use the code that Google returns to exchange for an access token
-		code := req.FormValue("code")
-		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
-		check(err)
-
-		//Use the Access token to access the identity API, and get the user info
-		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-		check(err)
-		defer response.Body.Close()
-
-		contents, err := ioutil.ReadAll(response.Body)
-		json.Unmarshal(contents, &currentUser)
-
-		if currentUser.VerifiedEmail == false {
-			login(res, req)
-		} else {
-
-		}
-
-	}
-
-}
 
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "current user email:"+oauth.CurrentUser.Email)
 	rows, err := db.Query(`SELECT * FROM Car2;`)
 	check(err)
 	defer rows.Close()
@@ -296,12 +181,6 @@ func viewFillUps(res http.ResponseWriter, req *http.Request) {
 }
 
 //---------------------------------------------End Route Functions------
-
-func numGenerator() string {
-	n := make([]byte, 32)
-	rand.Read(n)
-	return base64.StdEncoding.EncodeToString(n)
-}
 
 func getCarFromID(carID int) car {
 	rows, err := db.Query("SELECT * FROM Car2 WHERE CarID =" + strconv.Itoa(carID) + ";")
