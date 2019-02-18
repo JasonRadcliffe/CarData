@@ -21,15 +21,15 @@ type User struct {
 	dbID          int
 }
 
-type appConfigs struct {
+type appConfig struct {
 	OAuthConfig struct {
 		ClientID     string `json:"clientid"`
 		ClientSecret string `json:"clientsecret"`
 	} `json:"oauthconfigs"`
 }
 
-var appConfig appConfigs
-var oauthconfig *oauth2.Config
+var config appConfig
+var oauthConfig *oauth2.Config
 var oauthState string
 var CurrentUser User
 
@@ -39,13 +39,13 @@ func init() {
 	if err != nil {
 		log.Fatalln("config file error")
 	}
-	json.Unmarshal(file, &appConfig)
+	json.Unmarshal(file, &config)
 
-	fmt.Println("testing!!!!!!:" + appConfig.OAuthConfig.ClientID + "|" + appConfig.OAuthConfig.ClientSecret + "|||")
+	fmt.Println("testing!!!!!!:" + config.OAuthConfig.ClientID + "|" + config.OAuthConfig.ClientSecret + "|||")
 
-	oauthconfig = &oauth2.Config{
-		ClientID:     appConfig.OAuthConfig.ClientID,
-		ClientSecret: appConfig.OAuthConfig.ClientSecret,
+	oauthConfig = &oauth2.Config{
+		ClientID:     config.OAuthConfig.ClientID,
+		ClientSecret: config.OAuthConfig.ClientSecret,
 		RedirectURL:  "https://cardata.jasonradcliffe.com/success",
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
@@ -59,7 +59,7 @@ func Login(res http.ResponseWriter, req *http.Request) {
 
 	//Each time oauthlogin() is called, a unique, random string gets added to the URL for security
 	oauthState = numGenerator()
-	url := oauthconfig.AuthCodeURL(oauthState)
+	url := oauthConfig.AuthCodeURL(oauthState)
 	http.Redirect(res, req, url, http.StatusTemporaryRedirect)
 }
 
@@ -74,7 +74,7 @@ func Success(res http.ResponseWriter, req *http.Request) {
 
 		//Use the code that Google returns to exchange for an access token
 		code := req.FormValue("code")
-		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
+		token, err := oauthConfig.Exchange(oauth2.NoContext, code)
 		check(err)
 
 		//Use the Access token to access the identity API, and get the user info
