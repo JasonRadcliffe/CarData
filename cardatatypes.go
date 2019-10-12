@@ -38,10 +38,8 @@ type serviceStation struct {
 }
 
 type user struct {
-	UserID   int
+	UUID     int
 	Username string
-	//TODO: Impliment password hashing so that text passwords are not stored
-	Password []byte
 }
 
 type repair struct {

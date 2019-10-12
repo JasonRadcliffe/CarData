@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -31,6 +30,8 @@ type appConfig struct {
 var config appConfig
 var oauthConfig *oauth2.Config
 var oauthState string
+
+//CurrentUser is the data that gets returned by the google api and unmarshalled.
 var CurrentUser User
 
 func init() {
@@ -40,8 +41,6 @@ func init() {
 		log.Fatalln("config file error")
 	}
 	json.Unmarshal(file, &config)
-
-	fmt.Println("testing!!!!!!:" + config.OAuthConfig.ClientID + "|" + config.OAuthConfig.ClientSecret + "|||")
 
 	oauthConfig = &oauth2.Config{
 		ClientID:     config.OAuthConfig.ClientID,

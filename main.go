@@ -21,6 +21,15 @@ import (
 var db *sql.DB
 var err error
 
+//TODO - cleanup from code import
+var dbUsers = map[string]user{}       // user ID, user
+var dbSessions = map[string]session{} // session ID, session
+
+type session struct {
+	username     string
+	lastActivity time.Time
+}
+
 type appConfig struct {
 	DBConfig   string `json:"dbCon"`
 	CertConfig struct {
