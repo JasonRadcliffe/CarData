@@ -125,7 +125,7 @@ func about(res http.ResponseWriter, req *http.Request) {
 
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "current user email:"+oauth.CurrentUser.Email)
-	rows, err := db.Query(`SELECT * FROM Car2;`)
+	rows, err := db.Query(`SELECT * FROM Car;`)
 	check(err)
 	defer rows.Close()
 
@@ -163,7 +163,7 @@ func viewAllCars(res http.ResponseWriter, req *http.Request) {
 
 func viewFillUps(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "{insert viewCars code here!}")
-	rows, err := db.Query(`SELECT LicensePlate FROM Car2;`)
+	rows, err := db.Query(`SELECT LicensePlate FROM Car;`)
 	check(err)
 	defer rows.Close()
 
@@ -183,7 +183,7 @@ func viewFillUps(res http.ResponseWriter, req *http.Request) {
 //---------------------------------------------End Route Functions------
 
 func getCarFromID(carID int) car {
-	rows, err := db.Query("SELECT * FROM Car2 WHERE CarID =" + strconv.Itoa(carID) + ";")
+	rows, err := db.Query("SELECT * FROM Car WHERE CarID =" + strconv.Itoa(carID) + ";")
 	check(err)
 	defer rows.Close()
 
