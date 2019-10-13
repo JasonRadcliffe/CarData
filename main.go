@@ -136,6 +136,7 @@ func main() {
 	err = db.Ping()
 	check(err)
 
+
 	car1 := getCarFromID(7)
 	fmt.Println(car1)
 
@@ -304,7 +305,7 @@ func numGenerator() string {
 }
 
 func getCarFromID(carID int) car {
-	rows, err := db.Query("SELECT * FROM Car2 WHERE CarID =" + strconv.Itoa(carID) + ";")
+	rows, err := db.Query("SELECT * FROM Car WHERE CarID =" + strconv.Itoa(carID) + ";")
 	check(err)
 	defer rows.Close()
 
@@ -312,7 +313,6 @@ func getCarFromID(carID int) car {
 	var car1 car
 	var sMileageWhenSold sql.NullFloat64
 	var sDateSold, sNickname sql.NullString
-
 	err = rows.Scan(&car1.CarID, &car1.LicensePlate, &car1.Make, &car1.Model, &car1.ModelYear,
 		&car1.OdometerReading, &car1.Units, &car1.DatePurchased, &car1.MileageWhenPurchased,
 		&car1.CurrentlyActive, &sMileageWhenSold, &sDateSold, &sNickname)
