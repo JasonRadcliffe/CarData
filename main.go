@@ -241,7 +241,7 @@ func success(res http.ResponseWriter, req *http.Request) {
 }
 
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
-	rows, err := db.Query(`SELECT * FROM Car2;`)
+	rows, err := db.Query(`SELECT * FROM Car;`)
 	check(err)
 	defer rows.Close()
 
@@ -279,7 +279,7 @@ func viewAllCars(res http.ResponseWriter, req *http.Request) {
 
 func viewFillUps(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "{insert viewCars code here!}")
-	rows, err := db.Query(`SELECT LicensePlate FROM Car2;`)
+	rows, err := db.Query(`SELECT LicensePlate FROM Car;`)
 	check(err)
 	defer rows.Close()
 
