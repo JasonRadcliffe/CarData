@@ -136,7 +136,6 @@ func main() {
 	err = db.Ping()
 	check(err)
 
-
 	car1 := getCarFromID(7)
 	fmt.Println(car1)
 
@@ -147,6 +146,7 @@ func main() {
 	http.HandleFunc("/oauthlogin", oauthlogin)
 	http.HandleFunc("/signup", signup)
 	http.HandleFunc("/about", about)
+	http.HandleFunc("/ping", ping)
 	//---------Authenticated pages---------------------------------------------
 	http.HandleFunc("/viewCars", viewAllCars)
 	http.HandleFunc("/viewFillUps", viewFillUps)
@@ -186,6 +186,11 @@ func index(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "homepage")
 }
 
+func ping(res http.ResponseWriter, req *http.Request) {
+	io.WriteString(res, "<h1>PONG</h1>")
+	fmt.Println("PING PONG PING PONG PING PONG")
+}
+
 func login(res http.ResponseWriter, req *http.Request) {
 	//The Login page for the app - contains a "Login with Google" button
 	io.WriteString(res, `<a href="/oauthlogin"> Login with Google </a>`)
@@ -210,7 +215,9 @@ func about(res http.ResponseWriter, req *http.Request) {
 
 //-----------Authenticated Pages------------------------------------------
 func success(res http.ResponseWriter, req *http.Request) {
+	fmt.Println("running the success function!")
 	receivedState := req.FormValue("state")
+	fmt.Println("receivedState:", receivedState)
 
 	//Verify that the state parameter is the same coming back from Google as was set when we generated the URL
 	if receivedState != oauthstate {
@@ -219,8 +226,10 @@ func success(res http.ResponseWriter, req *http.Request) {
 
 		//Use the code that Google returns to exchange for an access token
 		code := req.FormValue("code")
+		fmt.Println("code:", code)
 		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
 		check(err)
+		fmt.Println("token:", token)
 
 		//Use the Access token to access the identity API, and get the user info
 		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
