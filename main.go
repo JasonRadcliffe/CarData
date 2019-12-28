@@ -229,20 +229,17 @@ func success(res http.ResponseWriter, req *http.Request) {
 
 		//Use the Access token to access the identity API, and get the user info
 		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-		fmt.Println("here is the response I got from Google:\n", response.Body)
 		check(err)
 		defer response.Body.Close()
 
 		contents, err := ioutil.ReadAll(response.Body)
 		check(err)
-		fmt.Println("the contents of the response body from Google:", contents)
 		json.Unmarshal(contents, &currentUser)
 
 		if currentUser.VerifiedEmail == false {
 			login(res, req)
 		} else {
-			fmt.Println("I think I'm an idiot, it was working the whole time???!?", currentUser.Email)
-
+			viewAllCars(res, req)
 		}
 
 	}
@@ -250,40 +247,47 @@ func success(res http.ResponseWriter, req *http.Request) {
 }
 
 func viewAllCars(res http.ResponseWriter, req *http.Request) {
-	rows, err := db.Query(`SELECT * FROM Car;`)
-	check(err)
-	defer rows.Close()
+	fmt.Println("currentUser:", currentUser)
 
-	s := "RETRIEVED RECORDS:\n"
-
-	for rows.Next() {
-		var car1 car
-		var sMileageWhenSold sql.NullFloat64
-		var sDateSold, sNickname sql.NullString
-
-		err = rows.Scan(&car1.CarID, &car1.LicensePlate, &car1.Make, &car1.Model, &car1.ModelYear,
-			&car1.OdometerReading, &car1.Units, &car1.DatePurchased, &car1.MileageWhenPurchased,
-			&car1.CurrentlyActive, &sMileageWhenSold, &sDateSold, &sNickname)
+	if currentUser.Email == "" {
+		login(res, req)
+	} else {
+		rows, err := db.Query(`SELECT * FROM Car;`)
 		check(err)
-		//s += "Car1:" + car1
+		defer rows.Close()
 
-		if sMileageWhenSold.Valid {
-			car1.MileageWhenSold = sMileageWhenSold.Float64
-		}
-		if sDateSold.Valid {
-			car1.DateSold = sDateSold.String
-		}
-		if sNickname.Valid {
-			car1.Nickname = sNickname.String
-		}
+		s := "RETRIEVED RECORDS:\n"
 
-		time1, err := time.Parse("2006-1-2", car1.DatePurchased)
-		check(err)
-		fmt.Println("Car was purchased in the month of:" + strconv.Itoa(int(time1.Month())))
+		for rows.Next() {
+			var car1 car
+			var sMileageWhenSold sql.NullFloat64
+			var sDateSold, sNickname sql.NullString
 
-		s += fmt.Sprint(car1) + "\n"
+			err = rows.Scan(&car1.CarID, &car1.LicensePlate, &car1.Make, &car1.Model, &car1.ModelYear,
+				&car1.OdometerReading, &car1.Units, &car1.DatePurchased, &car1.MileageWhenPurchased,
+				&car1.CurrentlyActive, &sMileageWhenSold, &sDateSold, &sNickname)
+			check(err)
+			//s += "Car1:" + car1
+
+			if sMileageWhenSold.Valid {
+				car1.MileageWhenSold = sMileageWhenSold.Float64
+			}
+			if sDateSold.Valid {
+				car1.DateSold = sDateSold.String
+			}
+			if sNickname.Valid {
+				car1.Nickname = sNickname.String
+			}
+
+			time1, err := time.Parse("2006-1-2", car1.DatePurchased)
+			check(err)
+			fmt.Println("Car was purchased in the month of:" + strconv.Itoa(int(time1.Month())))
+
+			s += fmt.Sprint(car1) + "\n"
+		}
+		fmt.Fprintln(res, s)
 	}
-	fmt.Fprintln(res, s)
+
 }
 
 func viewFillUps(res http.ResponseWriter, req *http.Request) {
