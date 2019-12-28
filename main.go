@@ -215,9 +215,7 @@ func about(res http.ResponseWriter, req *http.Request) {
 
 //-----------Authenticated Pages------------------------------------------
 func success(res http.ResponseWriter, req *http.Request) {
-	fmt.Println("running the success function!")
 	receivedState := req.FormValue("state")
-	fmt.Println("receivedState:", receivedState)
 
 	//Verify that the state parameter is the same coming back from Google as was set when we generated the URL
 	if receivedState != oauthstate {
@@ -229,10 +227,10 @@ func success(res http.ResponseWriter, req *http.Request) {
 		fmt.Println("code:", code)
 		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
 		check(err)
-		fmt.Println("token:", token)
 
 		//Use the Access token to access the identity API, and get the user info
 		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+		fmt.Println("here is the response I got from Google:\n"response.Body)
 		check(err)
 		defer response.Body.Close()
 
