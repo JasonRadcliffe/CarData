@@ -224,22 +224,24 @@ func success(res http.ResponseWriter, req *http.Request) {
 
 		//Use the code that Google returns to exchange for an access token
 		code := req.FormValue("code")
-		fmt.Println("code:", code)
 		token, err := oauthconfig.Exchange(oauth2.NoContext, code)
 		check(err)
 
 		//Use the Access token to access the identity API, and get the user info
 		response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
-		fmt.Println("here is the response I got from Google:\n"response.Body)
+		fmt.Println("here is the response I got from Google:\n", response.Body)
 		check(err)
 		defer response.Body.Close()
 
 		contents, err := ioutil.ReadAll(response.Body)
+		check(err)
+		fmt.Println("the contents of the response body from Google:", contents)
 		json.Unmarshal(contents, &currentUser)
 
 		if currentUser.VerifiedEmail == false {
 			login(res, req)
 		} else {
+			fmt.Println("I think I'm an idiot, it was working the whole time???!?", currentUser.Email)
 
 		}
 
