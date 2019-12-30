@@ -144,6 +144,7 @@ func main() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/login", login)
 	http.HandleFunc("/oauthlogin", oauthlogin)
+	http.HandleFunc("/oauthloginalexa", oauthloginAlexa)
 	http.HandleFunc("/signup", signup)
 	http.HandleFunc("/about", about)
 	http.HandleFunc("/ping", ping)
@@ -194,6 +195,14 @@ func ping(res http.ResponseWriter, req *http.Request) {
 func login(res http.ResponseWriter, req *http.Request) {
 	//The Login page for the app - contains a "Login with Google" button
 	io.WriteString(res, `<a href="/oauthlogin"> Login with Google </a>`)
+}
+
+func oauthloginAlexa(res http.ResponseWriter, req *http.Request) {
+	//Each time oauthlogin() is called, a unique, random string gets added to the URL for security
+	//oauthstate = numGenerator()
+	url2 := "https://accounts.google.com/o/oauth2/v2/auth?access_type=offline"
+	//url := oauthconfig.AuthCodeURL(oauthstate)
+	http.Redirect(res, req, url2, http.StatusTemporaryRedirect)
 }
 
 func oauthlogin(res http.ResponseWriter, req *http.Request) {
